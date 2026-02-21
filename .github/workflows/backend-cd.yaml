@@ -111,7 +111,7 @@ jobs:
       - name: Deploying to EKS
         run: |
           cd k8s
-          kustomize edit set image backend=$IMAGE_REGISTRY/$IMAGE_REPO/$IMAGE_TAG
+          kustomize edit set image backend=$IMAGE_REGISTRY/$IMAGE_REPO:$IMAGE_TAG
           kustomize build | kubectl apply -f -
 
       - name: Fetch Cluster Info

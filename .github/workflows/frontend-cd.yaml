@@ -53,6 +53,8 @@ jobs:
     defaults: 
       run: 
         working-directory: starter/frontend
+    env: 
+      REACT_APP_MOVIE_API_URL: ${{ secrets.REACT_APP_MOVIE_API_URL }}    
 
     steps:
       - name: Checkout the repo
@@ -110,7 +112,7 @@ jobs:
 
       - name: Build and Tag Docker Image 
         run: | 
-          docker build --build-arg=REACT_APP_MOVIE_API_URL="http://$REACT_APP_MOVIE_API_URL/" -t $IMAGE_REGISTRY/$IMAGE_REPO:$IMAGE_TAG . 
+          docker build --build-arg=REACT_APP_MOVIE_API_URL="$REACT_APP_MOVIE_API_URL" -t $IMAGE_REGISTRY/$IMAGE_REPO:$IMAGE_TAG . 
 
       - name: Push Docker image to AWS ECR
         run: |

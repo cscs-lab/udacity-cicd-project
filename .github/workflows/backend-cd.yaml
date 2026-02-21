@@ -3,8 +3,8 @@ name: Backend Continuous Deployment
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths: 'starter/backend/**'  
 
 env:
   AWS_REGION: us-east-1

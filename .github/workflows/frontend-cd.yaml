@@ -3,8 +3,9 @@ name: Frontend Continuous Deployment
 on:
   workflow_dispatch:  # Allow manual triggering
   push:
-    branches:
-      - main
+    branches: [main]
+    paths: 'starter/frontend/**'
+    
 env:
   REACT_APP_MOVIE_API_URL: ${{ secrets.REACT_APP_MOVIE_API_URL }}
   CLUSTER_NAME: cluster

@@ -3,8 +3,8 @@ name: Backend Continuous Integration
 on:
   workflow_dispatch:   # Allow manual triggering
   pull_request:
-    branches:
-      - main
+    branches: [main]
+    paths: 'starter/backend/**'  
 
 jobs: 
   lint: 

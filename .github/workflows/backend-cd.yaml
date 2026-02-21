@@ -1,0 +1,122 @@
+name: Backend Continuous Deployment
+
+on:
+  workflow_dispatch:  # Allow manual triggering
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  CLUSTER_NAME: cluster
+  IMAGE_REPO: backend
+  IMAGE_TAG: ${{ github.sha }}  
+
+jobs: 
+  lint: 
+    name: Lint
+    runs-on: ubuntu-latest 
+    environment:
+      name: staging  
+    defaults: 
+      run: 
+        working-directory: starter/backend
+
+    steps:
+      - name: Check the Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install Dependencies
+        run:  |
+          python -m pip install --upgrade pip
+          pip install pipenv
+          pipenv install --dev
+          pipenv run flake8
+
+      - name: Run Lint 
+        run: pipenv run lint 
+
+
+  test: 
+    name: Test 
+    runs-on: ubuntu-latest 
+    defaults: 
+      run: 
+        working-directory: starter/backend
+
+    steps:
+      - name: Check the Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install Dependencies
+        run:  |
+          python -m pip install --upgrade pip
+          pip install pipenv
+          pipenv install --dev
+          pipenv run flake8
+
+      - name: Run Test 
+        run: |
+          pipenv run pytest 
+          pipenv run test
+
+      
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    defaults: 
+      run: 
+        working-directory: starter/backend
+    
+    steps:
+      - name: Check the Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{env.AWS_REGION}}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Persist IMAGE_REGISTRY for later steps
+        run: |
+          echo "IMAGE_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
+
+      - name: Configure Kubeconfig
+        run: aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
+
+      - name: Build and Tag Docker Image 
+        run: | 
+          docker build -t $IMAGE_REGISTRY/$IMAGE_REPO:$IMAGE_TAG . 
+
+      - name: Push Docker image to AWS ECR
+        run: |
+          docker push $IMAGE_REGISTRY/$IMAGE_REPO:$IMAGE_TAG
+
+      - name: Deploying to EKS
+        run: |
+          cd k8s
+          kustomize edit set image backend=$IMAGE_REGISTRY/$IMAGE_REPO/$IMAGE_TAG
+          kustomize build | kubectl apply -f -
+
+      - name: Fetch Cluster Info
+        run: |
+          kubectl rollout status deployment/backend
+          kubectl get deployments
+          kubectl get svc
+          kubectl get pods

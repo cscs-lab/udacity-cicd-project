@@ -1,0 +1,130 @@
+name: Frontend Continuous Deployment
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+env:
+  REACT_APP_MOVIE_API_URL: ${{ secrets.REACT_APP_MOVIE_API_URL }}
+  CLUSTER_NAME: cluster
+  AWS_REGION: us-east-1
+  IMAGE_REPO: frontend
+  IMAGE_TAG: ${{ github.sha }} 
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    environment:
+      name: staging  
+    defaults: 
+      run: 
+        working-directory: starter/frontend
+
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+
+      - name: Setup Nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+
+      - name: Cache Nodejs dependencies 
+        uses: actions/cache@v3 
+        with: 
+          path: | 
+            ~/.npm 
+            node_modules 
+          key: node-${{ hashFiles('**/package-lock.json') }} 
+          restore-keys: | 
+            node-
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Lint
+        run: npm run lint
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults: 
+      run: 
+        working-directory: starter/frontend
+
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+
+      - name: Setup Nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+
+      - name: Cache Nodejs dependencies 
+        uses: actions/cache@v3 
+        with: 
+          path: | 
+            ~/.npm 
+            node_modules 
+          key: node-${{ hashFiles('**/package-lock.json') }} 
+          restore-keys: | 
+            node-
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Test
+        run: npm test
+
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    defaults: 
+      run: 
+        working-directory: starter/frontend
+    
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+    
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Persist IMAGE_REGISTRY for later steps
+        run: |
+          echo "IMAGE_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
+
+      - name: Configure Kubeconfig
+        run: aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
+
+      - name: Build and Tag Docker Image 
+        run: | 
+          docker build --build-arg=REACT_APP_MOVIE_API_URL="http://$REACT_APP_MOVIE_API_URL/" -t $IMAGE_REGISTRY/$IMAGE_REPO:$IMAGE_TAG . 
+
+      - name: Push Docker image to AWS ECR
+        run: |
+          docker push $IMAGE_REGISTRY/$IMAGE_REPO:$IMAGE_TAG 
+
+      - name: Deploying to EKS
+        run: |
+          cd k8s
+          kustomize edit set image frontend=$IMAGE_REGISTRY/$IMAGE_REPO:$IMAGE_TAG 
+          kustomize build | kubectl apply -f -
+      
+      - name: Fetch Cluster Info
+        run: |
+          kubectl rollout status deployment/frontend
+          kubectl get deployments
+          kubectl get svc
+          kubectl get pods

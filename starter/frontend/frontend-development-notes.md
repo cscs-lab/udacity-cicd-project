@@ -1,8 +1,5 @@
 # Frontend Development Notes
-
-# Adding a test line to trigger CI
-
-# Triggering CD pipeline test
+Triggering frontend CI pipeline test.
 
 ## React & TypeScript
 

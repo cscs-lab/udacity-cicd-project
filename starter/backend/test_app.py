@@ -1,5 +1,5 @@
 # Backend CI trigger test
-Triggering backend CI pipeline test.
+# Triggering backend CI pipeline test.
 
 from . import app
 import os

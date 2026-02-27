@@ -1,6 +1,8 @@
 # Frontend Development Notes
 Triggering frontend CI pipeline test.
 
+Triggering frontend CD pipeline test.
+
 ## React & TypeScript
 
 The frontend of our Movie Picture application is written in TypeScript and uses the React framework. This means that the codebase adheres to strict type checking and a component-based structure. 
